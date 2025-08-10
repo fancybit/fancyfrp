@@ -1,16 +1,27 @@
 [Unit]
-Description=FRP Service
+Description=Fast Reverse Proxy Server
+Documentation=https://github.com/fatedier/frp
 After=network.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-# 如果你使用脚本，这里填写脚本路径
+# 使用脚本启动FRP服务
 ExecStart=/usr/local/bin/frpsrv.sh
-# 如果你直接运行命令，这里填写命令
-# ExecStart=/path/to/your/program
+# 重启策略
 Restart=always
+RestartSec=5s
+# 启动超时
+TimeoutStartSec=30s
+# 运行用户和组
 User=root
 Group=root
+# 日志输出配置
+StandardOutput=journal
+StandardError=journal
+# 环境变量
+Environment=FRPS_LOG_LEVEL=info
+Environment=FRPS_LOG_MAX_DAYS=3
 
 [Install]
 WantedBy=multi-user.target
