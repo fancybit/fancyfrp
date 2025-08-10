@@ -1,0 +1,16 @@
+[Unit]
+Description=FRP Service
+After=network.target
+
+[Service]
+Type=simple
+# 如果你使用脚本，这里填写脚本路径
+ExecStart=/usr/local/bin/frpsrv.sh
+# 如果你直接运行命令，这里填写命令
+# ExecStart=/path/to/your/program
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
