@@ -1,67 +1,89 @@
-@echo off
-setlocal enabledelayedexpansion
+@echo on
+:: 将当前工作目录设置为批处理所在目录
+cd /d %~dp0
+:: 设置字符集为UTF-8
+chcp 65001 >nul
 
 :: 配置变量
 set "FRP_VERSION=0.63.0"
 set "FRP_ARCH=windows_amd64"
 set "INSTALL_DIR=%ProgramFiles%\frp"
-set "CONFIG_DIR=%ProgramData%\frp"
 
 :: 检查是否以管理员权限运行
 net session >nul 2>&1
 if %errorLevel% NEQ 0 (
-    echo 请以管理员权限运行此脚本！
-    pause
-    exit /b 1
+    echo 正在请求管理员权限...
+    :: 创建VBScript以管理员权限重新启动批处理
+    echo Set UAC = CreateObject^("Shell.Application"^) > "%temp%\getadmin.vbs"
+    echo UAC.ShellExecute "%~s0", "", "", "runas", 1 >> "%temp%\getadmin.vbs"
+    "%temp%\getadmin.vbs"
+    exit /b
 )
 
+:: 检测并安装ntserver
+ echo 检测ntserver是否已安装...
+ sc query ntserver >nul 2>&1
+ if %errorLevel% NEQ 0 (
+     echo ntserver未安装，开始安装...
+     :: 这里添加ntserver安装逻辑
+     :: 示例：假设ntserver安装程序位于当前目录的ntserver文件夹中
+     if exist .\ntserver\install.bat (
+         echo 运行ntserver安装脚本...
+         call .\ntserver\install.bat
+     ) else (
+         echo 未找到ntserver安装程序，请确保ntserver安装文件位于.\ntserver目录下。
+         echo 按任意键退出...
+         pause >nul
+         exit /b 1
+     )
+     :: 等待安装完成
+     timeout /t 5 /nobreak >nul
+     echo ntserver安装完成。
+ ) else (
+     echo ntserver已安装，跳过安装步骤。
+ )
+
 :: 创建安装目录和配置目录
-echo 创建安装目录: %INSTALL_DIR%
 mkdir "%INSTALL_DIR%" 2>nul
-mkdir "%INSTALL_DIR%\bin" 2>nul
 
-echo 创建配置目录: %CONFIG_DIR%
-mkdir "%CONFIG_DIR%" 2>nul
-
-:: 复制可执行文件
-echo 复制可执行文件...
-copy /Y ".\frp_%FRP_VERSION%_%FRP_ARCH%\frpc.exe" "%INSTALL_DIR%\bin\" >nul
-copy /Y ".\frp_%FRP_VERSION%_%FRP_ARCH%\frps.exe" "%INSTALL_DIR%\bin\" >nul
-
-:: 复制配置文件
-echo 复制配置文件...
-copy /Y ".\config\frpc.toml" "%CONFIG_DIR%\" >nul
-copy /Y ".\config\frps.toml" "%CONFIG_DIR%\" >nul
+:: 复制文件
+echo 复制文件...
+copy /Y ".\frp_%FRP_VERSION%_%FRP_ARCH%\*" "%INSTALL_DIR%\" >nul
+copy /Y ".\config\*" "%INSTALL_DIR%\" >nul
+copy /Y ".\frpsrv.bat" "%INSTALL_DIR%\" >nul
 
 :: 添加到PATH环境变量
 echo 添加到系统PATH环境变量...
-setx PATH "%PATH%;%INSTALL_DIR%\bin" /M >nul
+setx PATH "%PATH%;%INSTALL_DIR%" /M >nul
 
 :: 创建快捷方式到桌面（可选）
 echo 创建桌面快捷方式...
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "SHORTCUT_NAME=FRP 服务器.lnk"
-set "EXE_PATH=%INSTALL_DIR%\bin\frpsrv.bat"
-set "ICON_PATH=%INSTALL_DIR%\bin\frps.exe"
+set "EXE_PATH=%INSTALL_DIR%\frpsrv.bat"
+set "ICON_PATH=%INSTALL_DIR%\frps.exe"
 
 powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP%\%SHORTCUT_NAME%'); $Shortcut.TargetPath = '%EXE_PATH%'; $Shortcut.IconLocation = '%ICON_PATH%'; $Shortcut.Save()" >nul
 
 :: 创建Windows服务
-echo 创建Windows服务...
-set "SERVICE_NAME=FRPServer"
-set "SERVICE_DISPLAY_NAME=FRP Server"
-set "SERVICE_DESCRIPTION=Fast Reverse Proxy Server"
+ echo 创建Windows服务...
+ set "SERVICE_NAME=FRPServer"
+ set "SERVICE_DISPLAY_NAME=FRP Server"
+ set "SERVICE_DESCRIPTION=Fast Reverse Proxy Server"
 
-:: 检查服务是否已存在
-sc query %SERVICE_NAME% >nul 2>&1
-if %errorLevel% EQU 0 (
-    echo 服务 %SERVICE_NAME% 已存在，正在删除...
-    sc delete %SERVICE_NAME% >nul
-    timeout /t 2 /nobreak >nul
-)
+ :: 检查服务是否已存在
+ sc query %SERVICE_NAME% >nul 2>&1
+ if %errorLevel% EQU 0 (
+     echo 服务 %SERVICE_NAME% 已存在，正在删除...
+     sc delete %SERVICE_NAME% >nul
+     timeout /t 2 /nobreak >nul
+ )
 
-:: 创建服务
-sc create %SERVICE_NAME% binPath= "%INSTALL_DIR%\bin\frps.exe %CONFIG_DIR%\frps.toml" start= auto DisplayName= "%SERVICE_DISPLAY_NAME%" obj= "LocalSystem" description= "%SERVICE_DESCRIPTION%" >nul
+ :: 创建服务，正确指定启动参数
+ :: 在sc create命令中，binPath参数的格式为："可执行文件路径 参数1 参数2 ..."
+ :: 所有参数必须包含在同一个引号内
+ sc create %SERVICE_NAME% binPath="%INSTALL_DIR%\frps.exe -c %INSTALL_DIR%\frps.toml" start= auto DisplayName= "%SERVICE_DISPLAY_NAME%" obj= "LocalSystem" description= "%SERVICE_DESCRIPTION%"
+
 
 :: 启动服务
 sc start %SERVICE_NAME% >nul
@@ -74,10 +96,9 @@ if %errorLevel% NEQ 0 (
 :: 完成安装
 echo 安装完成！
 echo FRP %FRP_VERSION% 已成功安装到 %INSTALL_DIR%
-echo 配置文件位于 %CONFIG_DIR%
 echo 可执行文件已添加到系统PATH
 echo Windows服务已创建：%SERVICE_DISPLAY_NAME%
 
 echo 按任意键退出...
 pause >nul
-endlocal
+
