@@ -7,7 +7,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 # 使用脚本启动FRP服务
-ExecStart=/usr/local/bin/frpsrv.sh
+ExecStart=/usr/local/bin/frp -c /etc/frp/frps.toml
+
 # 重启策略
 Restart=always
 RestartSec=5s

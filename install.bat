@@ -20,29 +20,6 @@ if %errorLevel% NEQ 0 (
     exit /b
 )
 
-:: 检测并安装ntserver
- echo 检测ntserver是否已安装...
- sc query ntserver >nul 2>&1
- if %errorLevel% NEQ 0 (
-     echo ntserver未安装，开始安装...
-     :: 这里添加ntserver安装逻辑
-     :: 示例：假设ntserver安装程序位于当前目录的ntserver文件夹中
-     if exist .\ntserver\install.bat (
-         echo 运行ntserver安装脚本...
-         call .\ntserver\install.bat
-     ) else (
-         echo 未找到ntserver安装程序，请确保ntserver安装文件位于.\ntserver目录下。
-         echo 按任意键退出...
-         pause >nul
-         exit /b 1
-     )
-     :: 等待安装完成
-     timeout /t 5 /nobreak >nul
-     echo ntserver安装完成。
- ) else (
-     echo ntserver已安装，跳过安装步骤。
- )
-
 :: 创建安装目录和配置目录
 mkdir "%INSTALL_DIR%" 2>nul
 

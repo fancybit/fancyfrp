@@ -6,9 +6,25 @@ if [ "$EUID" -ne 0 ]
   exit 1
 fi
 
+# 检测系统架构
+ARCH=$(uname -m)
+
+# 根据架构设置变量
+case "$ARCH" in
+  x86_64|amd64)
+    FRP_ARCH="amd64"
+    ;;
+  aarch64|arm64)
+    FRP_ARCH="arm64"
+    ;;
+  *)
+    echo "错误: 不支持的架构: $ARCH"
+    exit 1
+    ;;
+ esac
+
 # 定义变量
 FRP_VERSION="0.63.0"
-FRP_ARCH="amd64"
 FRP_DIR="frp_${FRP_VERSION}_linux_${FRP_ARCH}"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/frps"
@@ -37,7 +53,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # 复制可执行文件
-cp frps "$INSTALL_DIR/frps"
+cp "./frp_${FRP_VERSION}_linux_${FRP_ARCH}/frps" "$INSTALL_DIR/frps"
 if [ $? -ne 0 ]; then
   echo "错误: 复制frps失败"
   exit 1
@@ -78,4 +94,4 @@ fi
 # 检查服务状态
 systemctl status frpsrv --no-pager
 
-echo "FRP服务安装完成!"
+echo "FRP服务安装完成! 架构: $FRP_ARCH, 版本: $FRP_VERSION, 安装目录: $INSTALL_DIR, 配置目录: $CONFIG_DIR"
